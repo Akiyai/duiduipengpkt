@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffe9f4">
+<title>对对碰 · 抽抽乐</title>
+<style>
+  /* ========== 基础重置（移动端优先） ========== */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    -webkit-text-size-adjust: 100%;  /* 防止 iOS 横屏自动放大字号 */
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;            /* 移动端浏览器地址栏适配 */
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    color: #5b4a70;
+    background: linear-gradient(165deg, #fff7ea 0%, #ffe9f4 35%, #e8f2ff 70%, #eafff3 100%);
+    background-attachment: fixed;
+    -webkit-tap-highlight-color: transparent; /* 去掉移动端点击高亮 */
+    touch-action: manipulation;               /* 去掉 300ms 点击延迟 */
+    overflow-x: hidden;
+  }
+
+  /* 背景彩色光斑，营造可爱氛围 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 12% 16%, rgba(255, 214, 102, .50), transparent 40%),
+      radial-gradient(circle at 88% 10%, rgba(150, 215, 255, .50), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(255, 168, 220, .42), transparent 40%),
+      radial-gradient(circle at 15% 88%, rgba(160, 255, 200, .42), transparent 40%);
+  }
+
+  /* 主容器：适配刘海屏安全区 */
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    padding:
+      calc(14px + env(safe-area-inset-top))
+      calc(14px + env(safe-area-inset-right))
+      calc(24px + env(safe-area-inset-bottom))
+      calc(14px + env(safe-area-inset-left));
+  }
+
+  .hidden { display: none !important; }
+
+  /* ========== 通用按钮 ========== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;             /* 触摸目标足够大 */
+    padding: 0 22px;
+    border: none;
+    border-radius: 16px;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    background: linear-gradient(180deg, #ff8fc0, #ff5f9e);
+    box-shadow: 0 5px 0 #d94080, 0 10px 20px rgba(255, 95, 158, .32);
+    transition: transform .1s ease, box-shadow .1s ease, background .2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 #d94080, 0 4px 10px rgba(255, 95, 158, .28);
+  }
+
+  .btn:disabled {
+    background: #ded8ea;
+    color: #fff;
+    box-shadow: 0 5px 0 #c6bfd6;
+    cursor: not-allowed;
+  }
+
+  .btn.ghost {
+    background: linear-gradient(180deg, #9fd8ff, #5cb8ff);
+    box-shadow: 0 5px 0 #3b93d6, 0 10px 20px rgba(92, 184, 255, .32);
+  }
+
+  .btn.ghost:active:not(:disabled) {
+    box-shadow: 0 1px 0 #3b93d6, 0 4px 10px rgba(92, 184, 255, .28);
+  }
+
+  /* ========== 第一屏：输入玩家 ID ========== */
+  .login-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: calc(100dvh - 120px);
+  }
+
+  .login-card {
+    padding: 30px 22px 26px;
+    text-align: center;
+    background: rgba(255, 255, 255, .85);
+    border: 3px solid #fff;
+    border-radius: 26px;
+    box-shadow: 0 16px 36px rgba(140, 110, 190, .20);
+    animation: popIn .5s cubic-bezier(.34, 1.56, .64, 1);
+  }
+
+  .login-emoji {
+    font-size: 48px;
+    line-height: 1;
+    margin-bottom: 8px;
+    animation: floatY 2.4s ease-in-out infinite;
+  }
+
+  @keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7px); }
+  }
+
+  .login-title {
+    margin: 0 0 8px;
+    font-size: clamp(26px, 7vw, 34px);
+    letter-spacing: 6px;
+    color: #ff5f9e;
+    text-shadow: 0 2px 0 #fff, 0 6px 14px rgba(255, 95, 158, .30);
+  }
+
+  .login-desc {
+    margin: 0 0 22px;
+    font-size: 13px;
+    letter-spacing: .5px;
+    color: #9b8bb0;
+  }
+
+  /* ID 输入框：字号 ≥16px，避免 iOS 聚焦时自动放大页面 */
+  .id-input {
+    width: 100%;
+    height: 54px;
+    padding: 0 20px;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-align: center;
+    color: #5b4a70;
+    background: #fff;
+    border: 3px solid #ffd6e8;
+    border-radius: 16px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-user-select: text;    /* 输入框允许选中文字 */
+    user-select: text;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  .id-input::placeholder { color: #c9bcdd; font-weight: 600; letter-spacing: 0; }
+
+  .id-input:focus {
+    border-color: #ff8fc0;
+    box-shadow: 0 0 0 5px rgba(255, 143, 192, .18);
+  }
+
+  .login-error {
+    min-height: 20px;
+    margin: 9px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #ff5f9e;
+  }
+
+  .login-card .btn {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  /* ========== 游戏顶部栏 ========== */
+  .game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  /* 玩家 ID 徽章（窄屏时可收缩省略） */
+  .player-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 6px 6px 6px 12px;
+    background: #fff;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #8a7aa8;
+    box-shadow: 0 4px 0 rgba(160, 130, 200, .16);
+  }
+
+  .player-badge .pid {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #ff5f9e;
+  }
+
+  .mini-btn {
+    flex: none;
+    border: none;
+    padding: 6px 11px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(180deg, #b9a6e8, #9678dd);
+    box-shadow: 0 3px 0 #7a5cc4;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .mini-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #7a5cc4; }
+
+  /* 抽卡计数 */
+  .counter {
+    flex: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 8px 16px;
+    background: #fff;
+    border-radius: 999px;
+    font-weight: 800;
+    color: #b6a9c9;
+    box-shadow: 0 4px 0 rgba(160, 130, 200, .16);
+  }
+
+  .counter-num   { font-size: 22px; color: #ff5f9e; }
+  .counter-total { font-size: 14px; }
+
+  /* ========== 九宫格棋盘（手机 3×3，桌面 1×9） ========== */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+    padding: 12px;
+    background: rgba(255, 255, 255, .62);
+    border: 2px solid #fff;
+    border-radius: 22px;
+    box-shadow: 0 10px 24px rgba(140, 110, 190, .15);
+  }
+
+  /* 空卡槽 */
+  .slot.empty {
+    aspect-ratio: 3 / 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: #cfc5e4;
+    border: 2px dashed #d9d0ec;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .35);
+  }
+
+  /* 卡片 */
+  .card {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 10%;
+    background: var(--c);
+    box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .08), 0 4px 10px rgba(90, 60, 130, .18);
+    outline: 0 solid transparent;
+    transition: transform .2s ease, box-shadow .2s ease;
+    animation: popIn .4s cubic-bezier(.34, 1.56, .64, 1);
+  }
+
+  /* 卡片高光，像糖果一样 */
+  .card::after {
+    content: '';
+    position: absolute;
+    top: 9%;
+    left: 14%;
+    width: 42%;
+    height: 24%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .55);
+    filter: blur(1px);
+    pointer-events: none;
+  }
+
+  .card .name {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(11px, 3.2vw, 14px);
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: var(--t);
+  }
+
+  /* 白色卡片加描边，避免和背景混在一起 */
+  .card.is-white { border: 2px solid #e3dff2; }
+
+  /* 已凑成对子的卡片：金色高亮 + “碰”字角标 */
+  .card.paired {
+    transform: translateY(-4px);
+    outline: 3px solid #ffd93d;
+    outline-offset: -1px;
+    box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .08), 0 0 16px rgba(255, 200, 60, .85);
+  }
+
+  .card.paired::before {
+    content: '碰';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: #ffd93d;
+    color: #8a6a00;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1.4;
+  }
+
+  @keyframes popIn {
+    0%   { transform: scale(.35) rotate(-12deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+  }
+
+  /* ========== 操作按钮区（拇指易触达） ========== */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .controls .primary { flex: 1.7; }
+  .controls .ghost   { flex: 1; }
+
+  /* ========== 对子面板 ========== */
+  .panel {
+    margin-top: 14px;
+    padding: 14px 16px 16px;
+    background: rgba(255, 255, 255, .75);
+    border: 2px solid #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 20px rgba(140, 110, 190, .12);
+  }
+
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    letter-spacing: 1px;
+    color: #8a7aa8;
+  }
+
+  .pairs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 40px;
+    align-items: center;
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: .5px;
+    color: #b6a9c9;
+  }
+
+  /* 对子小标签 */
+  .pair-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px 7px 9px;
+    background: #fff;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #5b4a70;
+    box-shadow: 0 3px 0 rgba(160, 130, 200, .16);
+    animation: popIn .3s cubic-bezier(.34, 1.56, .64, 1);
+  }
+
+  .dot {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, .08);
+  }
+
+  .chip-badge {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #ffd93d;
+    color: #8a6a00;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .summary {
+    margin-top: 10px;
+    min-height: 18px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #ff5f9e;
+  }
+
+  /* ========== 撒花特效 ========== */
+  .confetti {
+    position: fixed;
+    top: -40px;
+    z-index: 99;
+    pointer-events: none;
+    will-change: transform;
+    animation: fallDown linear forwards;
+  }
+
+  @keyframes fallDown {
+    to {
+      transform: translateY(110vh) rotate(540deg);
+      opacity: .1;
+    }
+  }
+
+  /* ========== 桌面端适配：棋盘变一行九张 ========== */
+  @media (min-width: 720px) {
+    .app { max-width: 900px; padding-top: 26px; }
+    .board { grid-template-columns: repeat(9, 1fr); gap: 10px; padding: 16px; }
+    .card .name { font-size: 14px; }
+    .controls { max-width: 440px; margin: 18px auto 0; }
+    .login-screen { min-height: calc(100dvh - 160px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ 第一屏：输入玩家 ID ============ -->
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="login-emoji">🎈</div>
+      <h1 class="login-title">对对碰</h1>
+      <p class="login-desc">九种颜色 · 抽九次 · 凑成对子碰一碰</p>
+
+      <input
+        type="text"
+        id="playerIdInput"
+        class="id-input"
+        maxlength="12"
+        placeholder="请输入你的游戏 ID"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+
+      <p class="login-error" id="loginError"></p>
+
+      <button class="btn" id="startBtn">开始游戏 🎮</button>
+    </div>
+  </section>
+
+  <!-- ============ 第二屏：游戏主界面 ============ -->
+  <section class="hidden" id="gameScreen">
+
+    <!-- 顶部：玩家信息 + 抽卡计数 -->
+    <div class="game-header">
+      <div class="player-badge">
+        <span>👤</span>
+        <span class="pid" id="playerIdShow"></span>
+        <button class="mini-btn" id="changeIdBtn">换 ID</button>
+      </div>
+      <div class="counter">
+        <span class="counter-num" id="counterNum">0</span>
+        <span class="counter-total">/ 9</span>
+      </div>
+    </div>
+
+    <!-- 九个卡槽（手机 3×3 / 桌面 1×9） -->
+    <div class="board" id="board"></div>
+
+    <!-- 抽卡 / 重开按钮 -->
+    <div class="controls">
+      <button class="btn primary" id="drawBtn">抽一张 🎴</button>
+      <button class="btn ghost" id="resetBtn">重新开始</button>
+    </div>
+
+    <!-- 对子展示区 -->
+    <div class="panel">
+      <h2>🧩 当前对子</h2>
+      <div class="pairs" id="pairs"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   1. 基础配置
+   ========================================================= */
+
+// 九种颜色的玩具卡片（hex 为卡面颜色，text 为卡面文字颜色）
+const COLORS = [
+  { key: 'red',    name: '红色', hex: '#ff5a5a', text: '#ffffff' },
+  { key: 'blue',   name: '蓝色', hex: '#4f9dff', text: '#ffffff' },
+  { key: 'yellow', name: '黄色', hex: '#ffd93d', text: '#8a6a00' },
+  { key: 'green',  name: '绿色', hex: '#4fd97a', text: '#0d6b2a' },
+  { key: 'cyan',   name: '青色', hex: '#38d9d9', text: '#06595a' },
+  { key: 'purple', name: '紫色', hex: '#a877ff', text: '#ffffff' },
+  { key: 'pink',   name: '粉色', hex: '#ff8fc8', text: '#8a1f52' },
+  { key: 'white',  name: '白色', hex: '#ffffff', text: '#9aa0b5' },
+  { key: 'orange', name: '橙色', hex: '#ffa13d', text: '#7a3d00' }
+];
+
+const COPIES     = 4;   // 每种颜色的玩具数量（九种一样多）
+const MAX_DRAW   = 9;   // 每轮需要抽九次
+const ID_MAX_LEN = 12;  // 玩家 ID 最大长度
+
+/* =========================================================
+   2. 游戏状态
+   ========================================================= */
+const state = {
+  playerId: '',  // 玩家 ID
+  deck: [],      // 牌堆（未抽出的卡片）
+  drawn: []      // 已经抽出的卡片
+};
+
+// 元素快捷获取
+const $ = id => document.getElementById(id);
+
+const loginScreen  = $('loginScreen');
+const gameScreen   = $('gameScreen');
+const idInput      = $('playerIdInput');
+const loginError   = $('loginError');
+const startBtn     = $('startBtn');
+const changeIdBtn  = $('changeIdBtn');
+const playerIdShow = $('playerIdShow');
+
+const boardEl    = $('board');
+const drawBtn    = $('drawBtn');
+const resetBtn   = $('resetBtn');
+const counterNum = $('counterNum');
+const pairsEl    = $('pairs');
+const summaryEl  = $('summary');
+const panelEl    = document.querySelector('.panel');
+
+let slotEls   = [];       // 九个卡槽对应的 DOM
+let celebrated = false;   // 本轮是否已经撒过花
+
+/* =========================================================
+   3. 登录 / 换 ID
+   ========================================================= */
+
+// 显示错误提示
+function showError(msg) {
+  loginError.textContent = msg || '';
+}
+
+// 开始游戏：校验 ID 后进入主界面
+function startGame() {
+  const val = idInput.value.trim();
+
+  if (!val) {
+    showError('请先输入你的游戏 ID 哦～');
+    idInput.focus();
+    return;
+  }
+  if (val.length > ID_MAX_LEN) {
+    showError(`ID 最多 ${ID_MAX_LEN} 个字符～`);
+    idInput.focus();
+    return;
+  }
+
+  state.playerId = val;
+  playerIdShow.textContent = val;
+  showError('');
+
+  // 切换到游戏界面
+  loginScreen.classList.add('hidden');
+  gameScreen.classList.remove('hidden');
+
+  newGame(); // 初始化本轮
+}
+
+// 返回登录页，重新输入 ID
+function changePlayer() {
+  gameScreen.classList.add('hidden');
+  loginScreen.classList.remove('hidden');
+  idInput.value = state.playerId; // 预填原 ID，方便修改
+  idInput.focus();
+  idInput.select();
+}
+
+/* =========================================================
+   4. 初始化 / 重开一局
+   ========================================================= */
+function newGame() {
+  // 生成牌堆：九种颜色 × 每种 4 张 = 36 张
+  state.deck = [];
+  let id = 0;
+  COLORS.forEach(color => {
+    for (let i = 0; i < COPIES; i++) {
+      state.deck.push({ ...color, id: id++ }); // id 用于精确标记每一张牌
+    }
+  });
+
+  // Fisher-Yates 洗牌
+  for (let i = state.deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [state.deck[i], state.deck[j]] = [state.deck[j], state.deck[i]];
+  }
+
+  state.drawn = [];
+  celebrated = false;
+
+  buildBoard(); // 重建九个空卡槽
+  render();     // 刷新界面
+}
+
+// 生成九个空卡槽
+function buildBoard() {
+  boardEl.innerHTML = '';
+  slotEls = [];
+  for (let i = 0; i < MAX_DRAW; i++) {
+    const el = document.createElement('div');
+    el.className = 'slot empty';
+    el.textContent = '?';
+    boardEl.appendChild(el);
+    slotEls.push(el);
+  }
+}
+
+/* =========================================================
+   5. 抽一张牌
+   ========================================================= */
+function drawOne() {
+  if (state.drawn.length >= MAX_DRAW) return; // 抽满九次后不再抽
+  const card = state.deck.pop();
+  if (!card) return;
+
+  state.drawn.push(card);
+  render();
+
+  // 抽满九次：有对子就撒花，并把对子面板滚进视野
+  if (state.drawn.length === MAX_DRAW) {
+    const { pairs } = computePairs();
+    if (pairs.length > 0 && !celebrated) {
+      celebrate();
+      celebrated = true;
+    }
+    // 小屏手机上，抽完后把对子面板滚动到可见位置
+    setTimeout(() => {
+      panelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 350);
+  }
+}
+
+/* =========================================================
+   6. 计算对子（相同颜色两两配对，凑成一碰）
+   ========================================================= */
+function computePairs() {
+  // 按颜色分组
+  const groups = {};
+  state.drawn.forEach(card => {
+    if (!groups[card.key]) groups[card.key] = [];
+    groups[card.key].push(card);
+  });
+
+  const pairedIds = new Set(); // 已配上对的卡片 id
+  const pairs = [];            // 对子列表
+
+  COLORS.forEach(color => {
+    const list = groups[color.key] || [];
+    const pairCount = Math.floor(list.length / 2); // 每 2 张凑成 1 碰
+    if (pairCount > 0) {
+      // 按抽取先后顺序，前 2n 张标记为已配对
+      for (let i = 0; i < pairCount * 2; i++) {
+        pairedIds.add(list[i].id);
+      }
+      pairs.push({ color, count: pairCount });
+    }
+  });
+
+  return { pairedIds, pairs };
+}
+
+/* =========================================================
+   7. 渲染界面
+   ========================================================= */
+function render() {
+  const { pairedIds, pairs } = computePairs();
+
+  // 7.1 更新九个卡槽
+  state.drawn.forEach((card, i) => {
+    const el = slotEls[i];
+    // 该槽位还没渲染过这张牌 → 把空槽变成卡片
+    if (el.dataset.cardId !== String(card.id)) {
+      el.className = 'card' + (card.key === 'white' ? ' is-white' : '');
+      el.dataset.cardId = card.id;
+      el.style.setProperty('--c', card.hex);
+      el.style.setProperty('--t', card.text);
+      el.innerHTML = '';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'name';
+      nameEl.textContent = card.name;
+      el.appendChild(nameEl);
+    }
+    // 是否属于某个对子
+    el.classList.toggle('paired', pairedIds.has(card.id));
+  });
+
+  // 7.2 更新抽卡次数
+  counterNum.textContent = state.drawn.length;
+
+  // 7.3 更新对子列表
+  renderPairs(pairs);
+
+  // 7.4 更新按钮状态
+  const finished = state.drawn.length >= MAX_DRAW;
+  drawBtn.disabled = finished;
+  drawBtn.textContent = finished ? '已抽完 9 次' : '抽一张 🎴';
+}
+
+// 渲染对子面板
+function renderPairs(pairs) {
+  if (pairs.length === 0) {
+    const msg = state.drawn.length < MAX_DRAW
+      ? '还没有凑成对子，继续抽卡吧～'
+      : '这一轮没有凑成对子，再来一次吧！';
+    pairsEl.innerHTML = `<p class="hint">${msg}</p>`;
+    summaryEl.textContent = '';
+    return;
+  }
+
+  pairsEl.innerHTML = pairs.map(p => `
+    <div class="pair-chip">
+      <span class="dot" style="background:${p.color.hex}"></span>
+      <span>${p.color.name}</span>
+      <span class="chip-badge">${p.count} 碰</span>
+    </div>
+  `).join('');
+
+  const total = pairs.reduce((sum, p) => sum + p.count, 0);
+  summaryEl.textContent = `玩家「${state.playerId}」本轮共 ${total} 碰 🎉`;
+}
+
+/* =========================================================
+   8. 撒花小特效
+   ========================================================= */
+function celebrate() {
+  const emojis = ['🎉', '✨', '🎊', '💖', '⭐', '🍬'];
+  for (let i = 0; i < 20; i++) {
+    const span = document.createElement('span');
+    span.className = 'confetti';
+    span.textContent = emojis[i % emojis.length];
+    span.style.left = Math.random() * 100 + 'vw';
+    span.style.fontSize = (14 + Math.random() * 16) + 'px';
+    span.style.animationDuration = (1.8 + Math.random() * 1.2) + 's';
+    span.style.animationDelay = (Math.random() * 0.4) + 's';
+    document.body.appendChild(span);
+    // 动画结束后自动移除，避免 DOM 堆积
+    setTimeout(() => span.remove(), 3800);
+  }
+}
+
+/* =========================================================
+   9. 事件绑定 & 启动
+   ========================================================= */
+
+// 点击「开始游戏」
+startBtn.addEventListener('click', startGame);
+
+// 输入框按回车（手机键盘的“前往/完成”键）也能开始
+idInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') startGame();
+});
+
+// 输入时清掉错误提示
+idInput.addEventListener('input', () => {
+  if (loginError.textContent) showError('');
+});
+
+// 换 ID
+changeIdBtn.addEventListener('click', changePlayer);
+
+// 抽卡 / 重开
+drawBtn.addEventListener('click', drawOne);
+resetBtn.addEventListener('click', newGame);
+
+// 页面加载后光标自动落在输入框（桌面端方便直接输入）
+idInput.focus();
+</script>
+</body>
+</html>
